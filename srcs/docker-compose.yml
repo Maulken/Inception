@@ -1,0 +1,94 @@
+services:
+  nginx:
+    container_name: nginx
+    hostname: backend
+    build:
+      context: ./requirements/nginx
+      dockerfile: Dockerfile
+    ports:
+      - 443:443
+    networks:
+      - inception
+    restart: always
+    env_file:
+      - path: .env
+        required: true
+    volumes:
+      - wordpress:/var/www/html:ro
+    depends_on:
+      wordpress:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "ping -c1 nginx || exit 1"]
+      interval: 2s
+      timeout: 10s
+      retries: 5
+
+
+
+  wordpress:
+    container_name: wordpress
+    hostname: wordpress
+    build:
+      context: ./requirements/wordpress
+      dockerfile: Dockerfile
+    networks:
+      - inception
+    expose:
+      - 9000
+    restart: always
+    env_file:
+      - path: .env
+        required: true
+    volumes:
+      - wordpress:/var/www/html
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test: "nc wordpress:9000 -z"
+      interval: 1s
+
+
+
+  mariadb:
+    container_name: mariadb
+    hostname: mariadb
+    build:
+      context: ./requirements/mariadb
+      dockerfile: Dockerfile
+    networks:
+      - inception
+    expose:
+      - 3306
+    restart: always
+    env_file:
+      - path: .env
+        required: true
+    volumes:
+      - mariadb:/var/lib/mysql
+    healthcheck:
+      test: "mariadb-check -A || exit 1"
+      interval: 2s
+      start_period: 15s
+      retries: 10
+
+
+
+networks:
+  inception:
+    name: inception
+    driver: bridge
+
+    
+volumes:
+  wordpress:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/vmassoli/data/wordpress
+  mariadb:
+    driver_opts:
+      o: bind
+      type: none
+      device: /home/vmassoli/data/database
